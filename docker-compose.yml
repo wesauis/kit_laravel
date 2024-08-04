@@ -1,0 +1,50 @@
+services:
+    app:
+        build:
+            context: .
+            dockerfile: Containerfile
+            target: ${APP_FLAVOR:-development}
+        restart: unless-stopped
+        extra_hosts:
+            - 'host.docker.internal:host-gateway'
+        ports:
+            - "${APP_HTTP_PORT:-80}:8000"
+        volumes:
+            - '.:/app'
+        networks:
+            - app_internal
+        depends_on:
+            - mysql
+
+    mysql:
+        image: docker.io/mysql:9.0.1-oraclelinux9
+        restart: unless-stopped
+        command:
+            - --innodb_file_per_table=ON
+        environment:
+            # root
+            MYSQL_ROOT_HOST: '%'
+            MYSQL_ROOT_PASSWORD: '${DB_ROOT_PASSWORD:-${DB_PASSWORD:-toor}}'
+            # app
+            MYSQL_USER: '${DB_USERNAME:-app}'
+            MYSQL_PASSWORD: '${DB_PASSWORD:-dev}'
+            MYSQL_DATABASE: '${DB_DATABASE:-app}'
+        volumes:
+            - 'mysql_data:/var/lib/mysql'
+        networks:
+            - app_internal
+        healthcheck:
+            test:
+                - CMD
+                - mysqladmin
+                - ping
+                - '-u${DB_USERNAME:-app}'
+                - '-p${DB_PASSWORD:-dev}'
+            retries: 3
+            timeout: 5s
+
+networks:
+    app_internal:
+
+volumes:
+    mysql_data:
